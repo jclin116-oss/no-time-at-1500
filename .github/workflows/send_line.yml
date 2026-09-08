@@ -26,4 +26,4 @@ jobs:
         env:
           LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
           TARGET_ID: ${{ secrets.TARGET_ID }}
-        run: python app.py
+        run: python main.py
