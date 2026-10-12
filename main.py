@@ -13,7 +13,7 @@ def get_dynamic_message():
     date_str = now_tw.strftime("%Y-%m-%d")
     time_str = "15:00"
     
-    message = f"""【基隆區處轄區-今日04:00~15:00區間新聞輿情】//測試發送//
+    message = f"""【基隆區處轄區-今日04:00~15:00區間新聞輿情】
 搜尋時間：{date_str} {time_str}
 ❌11小時內尚無本處轄區新聞。"""
     
