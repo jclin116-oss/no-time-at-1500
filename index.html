@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>LINE 新聞輿情發送內容編輯</title>
+    <style>
+        body { font-family: sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        textarea { width: 100%; height: 200px; padding: 12px; font-size: 15px; box-sizing: border-box; font-family: monospace; }
+        button { background: #00B900; color: white; border: none; padding: 10px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #009900; }
+        .status { margin-top: 15px; font-weight: bold; }
+        .config-box { background: #f9f9f9; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h2>LINE 輿情訊息編輯器</h2>
+    
+    <div class="config-box">
+        <label>GitHub Personal Access Token (PAT)：</label><br>
+        <input type="password" id="token" placeholder="請輸入帶有 repo 權限的 GitHub Token" style="width: 100%; padding: 6px; margin-top: 5px;">
+        <small style="color: #666;">Token 僅會暫存於你的瀏覽器 localStorage 中，方便之後直接發布。</small>
+    </div>
+
+    <form id="msgForm">
+        <label>訊息內容：</label><br>
+        <textarea id="messageText" required></textarea><br>
+        <button type="submit">更新並儲存至 GitHub</button>
+    </form>
+    
+    <div id="status" class="status"></div>
+
+    <script>
+        const REPO = "jclin116-oss/no-time-at-1500";
+        const FILE_PATH = "message.txt";
+
+        // 自動填入預設範本（日期為今天，時間 15:00）
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedToken = localStorage.getItem('gh_pat_token');
+            if (savedToken) document.getElementById('token').value = savedToken;
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${year}-${month}-${day}`;
+
+            // 預設內容
+            const defaultText = `【基隆區處轄區-今日04:00~15:00區間新聞輿情】\n搜尋時間：${todayStr} 15:00\n❌11小時內尚無本處轄區新聞。`;
+            
+            // 嘗試從 GitHub 抓取目前的內容，若沒有則用預設
+            fetchCurrentContent(defaultText);
+        });
+
+        async function fetchCurrentContent(defaultText) {
+            const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = decodeURIComponent(escape(window.atob(data.content)));
+                    document.getElementById('messageText').value = content;
+                } else {
+                    document.getElementById('messageText').value = defaultText;
+                }
+            } catch (e) {
+                document.getElementById('messageText').value = defaultText;
+            }
+        }
+
+        document.getElementById('msgForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = document.getElementById('token').value.trim();
+            const content = document.getElementById('messageText').value;
+            const statusDiv = document.getElementById('status');
+
+            if (!token) {
+                statusDiv.style.color = 'red';
+                statusDiv.innerText = '❌ 請先輸入 GitHub Token';
+                return;
+            }
+
+            localStorage.setItem('gh_pat_token', token);
+            statusDiv.style.color = '#333';
+            statusDiv.innerText = '⏳ 正在儲存至 GitHub...';
+
+            const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
+
+            try {
+                // 1. 先取得檔案目前的 sha (GitHub API 更新檔案需要)
+                let sha = '';
+                const getRes = await fetch(url);
+                if (getRes.ok) {
+                    const fileData = await getRes.json();
+                    sha = fileData.sha;
+                }
+
+                // 2. 準備上傳更新
+                const encodedContent = btoa(unescape(encodeURIComponent(content)));
+                const bodyData = {
+                    message: "Update message via web interface",
+                    content: encodedContent,
+                    sha: sha ? sha : undefined
+                };
+
+                const putRes = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (putRes.ok) {
+                    statusDiv.style.color = 'green';
+                    statusDiv.innerText = '✅ 儲存成功！Cloud Scheduler 時間到將發送此內容。';
+                } else {
+                    const errJson = await putRes.json();
+                    statusDiv.style.color = 'red';
+                    statusDiv.innerText = '❌ 儲存失敗: ' + (errJson.message || '未知錯誤');
+                }
+            } catch (err) {
+                statusDiv.style.color = 'red';
+                statusDiv.innerText = '❌ 網路錯誤或 Token 權限不足';
+            }
+        });
+    </script>
+</body>
+</html>
