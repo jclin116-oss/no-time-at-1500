@@ -27,7 +27,7 @@
     <div id="previewContent" class="preview-box">正在載入目前排定內容...</div>
 
     <form id="msgForm">
-        <h3>✏️ 編輯下次發送內容：</h3>
+        <h3>✏️ 編輯下次發送內容（已自動帶入今日預設範本）：</h3>
         <textarea id="messageText" required></textarea><br>
         <button type="submit">更新並儲存至 GitHub</button>
     </form>
@@ -42,14 +42,20 @@
             const savedToken = localStorage.getItem('gh_pat_token');
             if (savedToken) document.getElementById('token').value = savedToken;
 
+            // 取得當天日期
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
             const todayStr = `${year}-${month}-${day}`;
 
+            // 一律預設的範本格式
             const defaultText = `【基隆區處轄區-今日04:00~15:00區間新聞輿情】\n搜尋時間：${todayStr} 15:00\n❌11小時內尚無本處轄區新聞。`;
             
+            // 下方編輯框一律強制帶入當日預設範本
+            document.getElementById('messageText').value = defaultText;
+
+            // 上方藍框去 GitHub 抓取目前真正排定的內容
             fetchCurrentContent(defaultText);
         });
 
@@ -60,16 +66,13 @@
                 if (res.ok) {
                     const data = await res.json();
                     const content = decodeURIComponent(escape(window.atob(data.content)));
-                    // 顯示在上方即時預覽區與下方編輯框
+                    // 僅更新上方即時預覽區
                     document.getElementById('previewContent').innerText = content;
-                    document.getElementById('messageText').value = content;
                 } else {
                     document.getElementById('previewContent').innerText = defaultText;
-                    document.getElementById('messageText').value = defaultText;
                 }
             } catch (e) {
                 document.getElementById('previewContent').innerText = defaultText;
-                document.getElementById('messageText').value = defaultText;
             }
         }
 
@@ -117,11 +120,11 @@
 
                 if (putRes.ok) {
                     statusDiv.style.color = 'green';
-                    statusDiv.innerText = '✅ 儲存成功！上方預覽已更新。';
-                    // 同步更新上方的預覽區
+                    statusDiv.innerText = '✅ 儲存成功！上方預覽已同步更新。';
+                    // 儲存成功後，同步更新上方的預覽區
                     document.getElementById('previewContent').innerText = content;
                 } else {
-                    const errJson = await putRes.json();
+                    const errJson = updatedRes = await putRes.json();
                     statusDiv.style.color = 'red';
                     statusDiv.innerText = '❌ 儲存失敗: ' + (errJson.message || '未知錯誤');
                 }
