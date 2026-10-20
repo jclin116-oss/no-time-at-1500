@@ -5,7 +5,7 @@
     <title>LINE 新聞輿情發送內容編輯</title>
     <style>
         body { font-family: sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6; }
-        textarea { width: 100%; height: 180px; padding: 12px; font-size: 15px; box-sizing: border-box; font-family: monospace; }
+        textarea { width: 100%; height: 220px; padding: 12px; font-size: 15px; box-sizing: border-box; font-family: monospace; }
         button { background: #00B900; color: white; border: none; padding: 10px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
         button:hover { background: #009900; }
         .status { margin-top: 15px; font-weight: bold; }
@@ -42,20 +42,15 @@
             const savedToken = localStorage.getItem('gh_pat_token');
             if (savedToken) document.getElementById('token').value = savedToken;
 
-            // 取得當天日期
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
             const todayStr = `${year}-${month}-${day}`;
 
-            // 一律預設的範本格式
             const defaultText = `【基隆區處轄區-今日04:00~15:00區間新聞輿情】\n搜尋時間：${todayStr} 15:00\n❌11小時內尚無本處轄區新聞。`;
             
-            // 下方編輯框一律強制帶入當日預設範本
             document.getElementById('messageText').value = defaultText;
-
-            // 上方藍框去 GitHub 抓取目前真正排定的內容
             fetchCurrentContent(defaultText);
         });
 
@@ -66,7 +61,6 @@
                 if (res.ok) {
                     const data = await res.json();
                     const content = decodeURIComponent(escape(window.atob(data.content)));
-                    // 僅更新上方即時預覽區
                     document.getElementById('previewContent').innerText = content;
                 } else {
                     document.getElementById('previewContent').innerText = defaultText;
@@ -90,11 +84,12 @@
 
             localStorage.setItem('gh_pat_token', token);
             statusDiv.style.color = '#333';
-            statusDiv.innerText = '⏳ 正在儲存至 GitHub...';
+            statusDiv.innerText = '⏳ 正在檢查並儲存至 GitHub...';
 
             const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
 
             try {
+                // 每次送出前即時重新抓取最新的 sha，避免衝突
                 let sha = '';
                 const getRes = await fetch(url);
                 if (getRes.ok) {
@@ -121,10 +116,9 @@
                 if (putRes.ok) {
                     statusDiv.style.color = 'green';
                     statusDiv.innerText = '✅ 儲存成功！上方預覽已同步更新。';
-                    // 儲存成功後，同步更新上方的預覽區
                     document.getElementById('previewContent').innerText = content;
                 } else {
-                    const errJson = updatedRes = await putRes.json();
+                    const errJson = await putRes.json();
                     statusDiv.style.color = 'red';
                     statusDiv.innerText = '❌ 儲存失敗: ' + (errJson.message || '未知錯誤');
                 }
