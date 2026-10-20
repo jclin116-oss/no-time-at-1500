@@ -9,12 +9,19 @@
         button { background: #00B900; color: white; border: none; padding: 10px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
         button:hover { background: #009900; }
         .status { margin-top: 15px; font-weight: bold; }
+        .config-box { background: #f9f9f9; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; }
         .preview-box { background: #f1f8ff; border-left: 4px solid #0366d6; padding: 12px; margin-bottom: 20px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
         h3 { margin-bottom: 8px; }
     </style>
 </head>
 <body>
     <h2>LINE 輿情訊息編輯器</h2>
+    
+    <div class="config-box">
+        <label>GitHub Personal Access Token (PAT)：</label><br>
+        <input type="password" id="token" placeholder="請輸入帶有 repo 權限的 GitHub Token" style="width: 100%; padding: 6px; margin-top: 5px;">
+        <small style="color: #666;">Token 僅會暫存於你的瀏覽器 localStorage 中。</small>
+    </div>
 
     <h3>📌 目前 GitHub 上排定會發送的內容：</h3>
     <div id="previewContent" class="preview-box">正在載入目前排定內容...</div>
@@ -30,11 +37,11 @@
     <script>
         const REPO = "jclin116-oss/no-time-at-1500";
         const FILE_PATH = "message.txt";
-        
-        // 👉 請在此處直接填入你的 GitHub Token，之後就不用再手動輸入
-        const BUILT_IN_TOKEN = "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";
 
         window.addEventListener('DOMContentLoaded', () => {
+            const savedToken = localStorage.getItem('gh_pat_token');
+            if (savedToken) document.getElementById('token').value = savedToken;
+
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -65,22 +72,24 @@
 
         document.getElementById('msgForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const token = BUILT_IN_TOKEN.trim();
+            const token = document.getElementById('token').value.trim();
             const content = document.getElementById('messageText').value;
             const statusDiv = document.getElementById('status');
 
-            if (!token || token === "YOUR_TOKEN_HERE") {
+            if (!token) {
                 statusDiv.style.color = 'red';
-                statusDiv.innerText = '❌ 請先在程式碼中填入你的 GitHub Token';
+                statusDiv.innerText = '❌ 請先輸入 GitHub Token';
                 return;
             }
 
+            localStorage.setItem('gh_pat_token', token);
             statusDiv.style.color = '#333';
             statusDiv.innerText = '⏳ 正在檢查並儲存至 GitHub...';
 
             const url = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
 
             try {
+                // 每次送出前即時重新抓取最新的 sha，避免衝突
                 let sha = '';
                 const getRes = await fetch(url);
                 if (getRes.ok) {
